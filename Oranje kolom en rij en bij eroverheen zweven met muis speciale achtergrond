@@ -1,0 +1,195 @@
+class Raster {
+  constructor(r, k) {
+    this.aantalRijen = r;
+    this.aantalKolommen = k;
+    this.celGrootte = 0;
+    this.oranjeRij = 7;
+    this.oranjeKolom = 2;
+  }
+
+  berekenCelGrootte() {
+    if (canvas.width && this.aantalKolommen > 0) {
+      this.celGrootte = canvas.width / this.aantalKolommen;
+    } else {
+      this.celGrootte = 50;
+    }
+  }
+
+  teken() {
+    push();
+    noFill();
+    stroke('grey');
+    for (let rij = 0; rij < this.aantalRijen; rij++) {
+      for (let kolom = 0; kolom < this.aantalKolommen; kolom++) {
+        if (rij === this.oranjeRij || kolom === this.oranjeKolom) {
+          fill('orange');
+        } else {
+          noFill();
+        }
+        rect(kolom * this.celGrootte, rij * this.celGrootte, this.celGrootte, this.celGrootte);
+      }
+    }
+    pop();
+  }
+   isMuisOverOranjeCel() {
+    let kolom = floor(mouseX / this.celGrootte);
+    let rij = floor(mouseY / this.celGrootte);
+    return rij === this.oranjeRij || kolom === this.oranjeKolom;
+  }
+}
+
+class Jos {
+  constructor() {
+    this.startX = 400;
+    this.startY = 300;
+    this.x = this.startX;
+    this.y = this.startY;
+    this.animatie = [];
+    this.frameNummer = 3;
+    this.stapGrootte = 1; // Standaard stapgrootte
+    this.gehaald = false;
+    this.levens = 3; // Start met 3 levens
+  }
+
+  reset() {
+    this.x = this.startX;
+    this.y = this.startY;
+  }
+
+  beweeg() {
+    if (keyIsDown(65)) { //A is naar links ook wel 65
+      this.x -= this.stapGrootte;
+      this.frameNummer = 2;
+    }
+    if (keyIsDown(68)) { //D is naar rechts ook wel 68
+      this.x += this.stapGrootte;
+      this.frameNummer = 1;
+    }
+    if (keyIsDown(87)) { //W is naar boven ook wel 87
+      this.y -= this.stapGrootte;
+      this.frameNummer = 4;
+    }
+    if (keyIsDown(83)) { //S is naar beneden ook wel 83
+      this.y += this.stapGrootte;
+      this.frameNummer = 5;
+    }
+
+    this.x = constrain(this.x, 0, canvas.width - (raster.celGrootte || 50));
+    this.y = constrain(this.y, 0, canvas.height - (raster.celGrootte || 50));
+
+    if (this.x >= canvas.width - (raster.celGrootte || 50)) {
+      this.gehaald = true; // Geef aan dat het doel is bereikt
+    }
+  }
+
+  wordtGeraakt(vijand) {
+    return this.x === vijand.x && this.y === vijand.y;
+  }
+
+  toon() {
+    let grootte = raster.celGrootte || 50;
+    image(this.animatie[this.frameNummer], this.x, this.y, grootte, grootte);
+  }
+}
+
+class Vijand {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.sprite = null;
+    this.stapGrootte = 1;
+  }
+
+  beweeg() {
+    this.x += floor(random(-1, 2)) * this.stapGrootte;
+    this.y += floor(random(-1, 2)) * this.stapGrootte;
+
+    this.x = constrain(this.x, 0, canvas.width - (raster.celGrootte || 50));
+    this.y = constrain(this.y, 0, canvas.height - (raster.celGrootte || 50));
+  }
+
+  toon() {
+    let grootte = raster.celGrootte || 50;
+    image(this.sprite, this.x, this.y, grootte, grootte);
+  }
+}
+
+function preload() {
+  brug = loadImage("images/backgrounds/dame_op_brug_1800.jpg");
+  kwal = loadImage("images/backgrounds/onderwater.png")
+}
+
+function setup() {
+  canvas = createCanvas(900, 600);
+  canvas.parent();
+  frameRate(10);
+  textFont("Verdana");
+
+  raster = new Raster(12, 18);
+  raster.berekenCelGrootte();
+
+  eve = new Jos();
+  eve.stapGrootte = raster.celGrootte;
+  for (let b = 0; b < 6; b++) {
+    let frameEve = loadImage("images/sprites/Eve 100px/Eve_" + b + ".png");
+    eve.animatie.push(frameEve);
+  }
+
+  alice = new Vijand(700, 200);
+  alice.stapGrootte = eve.stapGrootte;
+  alice.sprite = loadImage("images/sprites/Alice 100px/Alice.png");
+
+  bob = new Vijand(600, 400);
+  bob.stapGrootte = eve.stapGrootte;
+  bob.sprite = loadImage("images/sprites/bob 100px/Bob.png");
+}
+
+function draw() {
+  if (raster.isMuisOverOranjeCel()) {
+    background(kwal);
+  } else {
+    background(brug);
+  }
+  raster.teken();
+  eve.beweeg();
+  alice.beweeg();
+  bob.beweeg();
+  eve.toon();
+  alice.toon();
+  bob.toon();
+
+  fill('black');
+  textSize(20);
+  text(`Levens: ${eve.levens}`, 10, 30);
+
+  // Controleer of Eve wordt geraakt door Alice of Bob
+  if (eve.wordtGeraakt(alice) || eve.wordtGeraakt(bob)) {
+    eve.levens--;
+    if (eve.levens > 0) {
+      background('red');
+      fill('white');
+      textSize(90);
+      text("Je bent geraakt!", 50, 300);
+      eve.reset();
+      setTimeout(() => {
+        loop(); // Herstart het spel na 1 seconde
+      }, 1000);
+      noLoop();
+    } else {
+      background('red');
+      fill('white');
+      textSize(40);
+      text("Je levens zijn op, je hebt verloren!", 30, 300);
+      noLoop(); // Stop het spel als alle levens op zijn
+    }
+  }
+
+    //als eve heeft gewonnen
+  if (eve.gehaald) {
+    background('green');
+    fill('white');
+    textSize(90);
+    text("Je hebt gewonnen!", 30, 300);
+    noLoop(); // Stop het spel als gewonnen
+  }
+}
